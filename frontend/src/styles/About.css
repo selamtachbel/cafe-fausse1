@@ -1,0 +1,112 @@
+/* About.css – hero-style background like Menu */
+
+.about-page {
+  min-height: calc(100vh - 70px); /* full screen minus navbar */
+  padding: 3rem 1.5rem 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+
+  /* same hero background as menu – change path if your hero image is elsewhere */
+  background-image:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.9)),
+    url("/images/menu/hero.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* main card */
+.about-card {
+  max-width: 900px;
+  width: 100%;
+  padding: 2.5rem 3rem;
+  border-radius: 18px;
+  background: rgba(10, 10, 10, 0.9);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(16px);
+  color: #f5f5f5;
+}
+
+.about-header {
+  margin-bottom: 1.75rem;
+}
+
+.about-header h1 {
+  font-size: 2.2rem;
+  margin-bottom: 0.25rem;
+}
+
+.about-header p {
+  font-size: 0.97rem;
+  opacity: 0.9;
+}
+
+/* content layout */
+.about-content {
+  display: grid;
+  grid-template-columns: 2fr 1.3fr;
+  gap: 2rem;
+}
+
+/* story text */
+.about-story p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+/* info panel on the right */
+.about-info {
+  padding: 1.4rem 1.5rem;
+  border-radius: 14px;
+  background: rgba(20, 20, 20, 0.95);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+  font-size: 0.9rem;
+}
+
+.about-info h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.about-info-section + .about-info-section {
+  margin-top: 0.9rem;
+}
+
+.about-info-section h3 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.9;
+  margin-bottom: 0.2rem;
+}
+
+.about-info-section p {
+  margin: 0.1rem 0;
+}
+
+/* small “since” badge */
+.about-badge {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.9;
+}
+
+/* mobile layout */
+@media (max-width: 768px) {
+  .about-card {
+    padding: 2rem 1.6rem;
+  }
+
+  .about-content {
+    grid-template-columns: 1fr;
+  }
+}
