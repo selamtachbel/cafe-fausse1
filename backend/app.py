@@ -1,28 +1,29 @@
+# backend/app.py
+
 import os
-import random
 import re
 from datetime import datetime
 
-from flask import Flask, request, jsonify
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from dotenv import load_dotenv
 
-# ------------------ Setup ------------------ #
+# ---------------- Setup ---------------- #
 
 load_dotenv()  # reads .env file
 
 app = Flask(__name__)
 
-
 # Database config (SQLite)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "SQLALCHEMY_DATABASE_URI", "sqlite:///cafe_fausse.db"
+    "SQLALCHEMY_DATABASE_URI", "sqlite:///instance/cafe_fausse.db"
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
+# CORS: allow local dev + Render frontend
 CORS(
     app,
     resources={r"/api/*": {"origins": [
@@ -33,7 +34,10 @@ CORS(
     supports_credentials=False,
 )
 
-# ------------------ Models ------------------ #
+EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+ADMIN_KEY = os.getenv("ADMIN_KEY", "Selam2024")
+
+# ---------------- Models ---------------- #
 
 
 class NewsletterSubscriber(db.Model):
@@ -58,13 +62,16 @@ class Reservation(db.Model):
     newsletter_opt_in = db.Column(db.Boolean, default=False, nullable=False)
 
 
+# Create tables (local + Render)
 with app.app_context():
     try:
         db.create_all()
         print("✅ Database tables are ready.")
     except Exception as e:
         print("❌ Error creating tables:", e)
-# ------------------ Routes ------------------ #
+
+
+# ---------------- Routes ---------------- #
 
 
 @app.route("/api/health", methods=["GET"])
@@ -72,216 +79,148 @@ def health_check():
     return jsonify({"status": "ok"}), 200
 
 
-# ========== Newsletter ========== #
-
-
+# ---- Newsletter signup ---- #
 @app.route("/api/newsletter", methods=["POST"])
-def signup_newsletter():
+def newsletter_signup():
     data = request.get_json() or {}
 
-    name = (data.get("name") or "").strip() or None
-    email = (data.get("email") or "").strip()
+    name = data.get("name", "").strip() or None
+    email = (data.get("email") or "").strip().lower()
 
-    # Validation
-    if not email:
-        return jsonify({"error": "Email is required."}), 400
-    if not EMAIL_REGEX.match(email):
-        return jsonify({"error": "Please enter a valid email address."}), 400
+    if not email or not EMAIL_REGEX.match(email):
+        return jsonify({"error": "Invalid email address."}), 400
 
-    # Existing subscriber?
-    existing = NewsletterSubscriber.query.filter_by(email=email).first()
-    if existing:
-        return jsonify({"message": "You are already subscribed with this email."}), 200
+    try:
+        # If already subscribed, just return success
+        existing = NewsletterSubscriber.query.filter_by(email=email).first()
+        if existing:
+            return jsonify({"message": "Already subscribed."}), 200
 
-    # Create new subscriber
-    subscriber = NewsletterSubscriber(name=name, email=email)
-    db.session.add(subscriber)
-    db.session.commit()
+        subscriber = NewsletterSubscriber(name=name, email=email)
+        db.session.add(subscriber)
+        db.session.commit()
 
-    return jsonify({"message": "Thank you for subscribing!"}), 200
-
-
-# ========== Reservations ========== #
+        return jsonify({"message": "Subscribed successfully."}), 201
+    except Exception as e:
+        print("❌ Newsletter error:", e)
+        db.session.rollback()
+        return jsonify({"error": "Server error."}), 500
 
 
+# ---- Create reservation ---- #
 @app.route("/api/reservations", methods=["POST"])
 def create_reservation():
     data = request.get_json() or {}
 
     name = (data.get("name") or "").strip()
-    email = (data.get("email") or "").strip()
+    email = (data.get("email") or "").strip().lower()
     phone = (data.get("phone") or "").strip() or None
     guests = data.get("guests")
-    datetime_str = data.get("datetime")
-    newsletter = bool(data.get("newsletter"))
+    date_str = data.get("date")  # e.g. "2025-11-22"
+    time_str = data.get("time")  # e.g. "18:00"
+    newsletter_opt_in = bool(data.get("newsletter_opt_in"))
 
-    # ----- Validation -----
-    if not name:
-        return jsonify({"error": "Name is required."}), 400
-    if len(name) < 2:
-        return jsonify({"error": "Please enter your full name."}), 400
+    # Basic validation
+    if not name or not email or not guests or not date_str or not time_str:
+        return jsonify({"error": "Missing required fields."}), 400
 
-    if not email:
-        return jsonify({"error": "Email is required."}), 400
     if not EMAIL_REGEX.match(email):
-        return jsonify({"error": "Please enter a valid email address."}), 400
-
-    if guests is None:
-        return jsonify({"error": "Number of guests is required."}), 400
+        return jsonify({"error": "Invalid email address."}), 400
 
     try:
-        guests = int(guests)
-    except (TypeError, ValueError):
-        return jsonify({"error": "Guests must be a number."}), 400
+        # combine date + time into datetime
+        # expect ISO-like strings from frontend, adjust if needed
+        time_slot = datetime.fromisoformat(f"{date_str} {time_str}")# you can make a smarter table_number; here just a simple placeholder
+        table_number = int(data.get("table_number") or 1)
 
-    if guests < 1 or guests > 10:
-        return jsonify({"error": "Guests must be between 1 and 10."}), 400
+        reservation = Reservation(
+            name=name,
+            email=email,
+            phone=phone,
+            guests=int(guests),
+            time_slot=time_slot,
+            table_number=table_number,
+            newsletter_opt_in=newsletter_opt_in,
+        )
+        db.session.add(reservation)
 
-    if not datetime_str:
-        return jsonify({"error": "Date and time are required."}), 400
+        # If user ticked newsletter, upsert subscriber
+        if newsletter_opt_in:
+            existing = NewsletterSubscriber.query.filter_by(email=email).first()
+            if not existing:
+                subscriber = NewsletterSubscriber(name=name, email=email)
+                db.session.add(subscriber)
 
-    # Expecting something like "2025-11-28T18:00"
-    try:
-        time_slot = datetime.fromisoformat(datetime_str)
-    except ValueError:
-        return jsonify({"error": "Invalid date/time format."}), 400
+        db.session.commit()
+        return jsonify({"message": "Reservation created."}), 201
 
-    if time_slot < datetime.now():
-        return jsonify({"error": "You cannot book a time in the past."}), 400
-
-    # Prevent duplicate reservation for same email + same time_slot
-    existing_for_user = Reservation.query.filter_by(
-        email=email, time_slot=time_slot
-    ).first()
-    if existing_for_user:
-        return jsonify(
-            {"error": "You already have a reservation for this time slot."}
-        ), 400
-
-    # Table availability: max 30 tables per time slot
-    MAX_TABLES = 30
-    existing = Reservation.query.filter_by(time_slot=time_slot).all()
-    taken_tables = {r.table_number for r in existing}
-
-    if len(taken_tables) >= MAX_TABLES:
-        return jsonify(
-            {"error": "This time slot is fully booked. Please choose another time."}
-        ), 400
-
-    available_tables = [t for t in range(1, MAX_TABLES + 1) if t not in taken_tables]
-    table_number = random.choice(available_tables)
-
-    # Create reservation
-    reservation = Reservation(
-        name=name,
-        email=email,
-        phone=phone,
-        guests=guests,
-        time_slot=time_slot,
-        table_number=table_number,
-        newsletter_opt_in=newsletter,
-    )
-    db.session.add(reservation)
-
-    # If they opted into newsletter, ensure they are subscribed
-    if newsletter:
-        existing_subscriber = NewsletterSubscriber.query.filter_by(email=email).first()
-        if not existing_subscriber:
-            subscriber = NewsletterSubscriber(name=name, email=email)
-            db.session.add(subscriber)
-
-    db.session.commit()
-
-    return (
-        jsonify(
-            {
-                "message": "Reservation confirmed!",
-                "table_number": table_number,
-                "time_slot": time_slot.isoformat(),
-            }
-        ),
-        200,
-    )
+    except Exception as e:
+        print("❌ Reservation error:", e)
+        db.session.rollback()
+        return jsonify({"error": "Server error."}), 500
 
 
-# ========== Admin Overview (with Admin Key) ========== #
-
+# ---- Admin overview (with admin key) ---- #
 @app.route("/api/admin/overview", methods=["GET"])
 def admin_overview():
     """
-    Return all reservations and newsletter subscribers.
-    Protected with simple admin key.
+    Frontend should call: /api/admin/overview?key=YOUR_KEY
+    where YOUR_KEY must match ADMIN_KEY in .env
     """
-
     key = request.args.get("key")
     if not key or key != ADMIN_KEY:
-        # Wrong or missing admin key
         return jsonify({"error": "Invalid admin key."}), 401
 
     try:
-        # Get data from DB
         reservations = (
-            Reservation.query
-            .order_by(Reservation.time_slot.asc())
-            .all()
+            Reservation.query.order_by(Reservation.time_slot.asc()).all()
         )
         subscribers = (
-            NewsletterSubscriber.query
-            .order_by(NewsletterSubscriber.created_at.desc())
-            .all()
+            NewsletterSubscriber.query.order_by(
+                NewsletterSubscriber.created_at.desc()
+            ).all()
         )
 
-        # Some older rows in the DB might store dates as *strings*.
-        # Safely handle both string and datetime, so we don't crash.
-        def safe_datetime_to_str(value):
-            from datetime import datetime
-            if value is None:
-                return ""
-            if isinstance(value, str):
-                return value  # already a string, just return it
-            try:
-                return value.strftime("%Y-%m-%d %H:%M")
-            except Exception:
-                return str(value)
-
-        reservations_data = []
-        for r in reservations:
-            reservations_data.append({
+        reservations_data = [
+            {
                 "id": r.id,
                 "name": r.name,
                 "email": r.email,
                 "phone": r.phone,
                 "guests": r.guests,
-                "time_slot": safe_datetime_to_str(r.time_slot),
+                "time_slot": r.time_slot.isoformat(),
                 "table_number": r.table_number,
-                "newsletter_opt_in": bool(r.newsletter_opt_in),
-            })
+                "newsletter_opt_in": r.newsletter_opt_in,
+            }
+            for r in reservations
+        ]
 
-        subscribers_data = []
-        for s in subscribers:
-            subscribers_data.append({
+        subscribers_data = [
+            {
                 "id": s.id,
                 "name": s.name,
                 "email": s.email,
-                "subscribed_at": safe_datetime_to_str(s.created_at),
-            })
+                "created_at": s.created_at.isoformat(),
+            }
+            for s in subscribers
+        ]
 
-        return jsonify({
-            "reservations": reservations_data,
-            "subscribers": subscribers_data,
-        }), 200
+        return jsonify(
+            {
+                "reservations": reservations_data,
+                "subscribers": subscribers_data,
+            }
+        ), 200
 
     except Exception as e:
-        # Log on server, but return a clean JSON error
-        print("ERROR in admin_overview:", repr(e))
-        return jsonify({"error": "Server error"}), 500
-@app.after_request
-def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "https://cafe-fausse1-frontend-selam.onrender.com"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    return response
-# ------------------ Main ------------------ #
+        print("❌ Admin overview error:", e)
+        return jsonify({"error": "Server error."}), 500
+
+
+# ------------- Main ------------- #
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Local dev
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
+        
