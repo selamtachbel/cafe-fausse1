@@ -13,6 +13,19 @@ from dotenv import load_dotenv
 load_dotenv()  # reads .env file
 
 app = Flask(__name__)
+app = Flask(__name__)
+
+# --- CORS FIX FOR RENDER ---
+CORS(
+    app,
+    resources={r"/api/*": {"origins": [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://cafe-fausse1-frontend-selam.onrender.com",
+    ]}},
+    supports_credentials=False,
+)
+# ---------------------------
 
 # Database config (SQLite)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
@@ -21,7 +34,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
-CORS(app, origins=["http://localhost:5173"])
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -251,7 +263,12 @@ def admin_overview():
         print("ADMIN OVERVIEW ERROR:", e)
         return jsonify({"error": "Server error"}), 500
 
-
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "https://cafe-fausse1-frontend-selam.onrender.com"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
 # ------------------ Main ------------------ #
 
 if __name__ == "__main__":
