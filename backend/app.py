@@ -22,6 +22,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+
 CORS(
     app,
     resources={r"/api/*": {"origins": [
@@ -31,6 +32,7 @@ CORS(
     ]}},
     supports_credentials=False,
 )
+
 # ------------------ Models ------------------ #
 
 
@@ -204,15 +206,10 @@ def create_reservation():
 
 # ========== Admin Overview (with Admin Key) ========== #
 
-
 @app.route("/api/admin/overview", methods=["GET"])
 def admin_overview():
-    """
-    Returns all reservations and newsletter subscribers.
-    Requires a valid admin key as a query parameter:
-    GET /api/admin/overview?key=Selam2024
-    """
     key = request.args.get("key")
+
     if not key or key != ADMIN_KEY:
         return jsonify({"error": "Invalid admin key."}), 401
 
@@ -229,7 +226,7 @@ def admin_overview():
                 "email": r.email,
                 "phone": r.phone,
                 "guests": r.guests,
-                "time_slot": r.time_slot.isoformat(),
+                "time_slot": r.time_slot.isoformat() if r.time_slot else None,
                 "table_number": r.table_number,
                 "wants_newsletter": r.wants_newsletter,
             }
@@ -241,21 +238,19 @@ def admin_overview():
                 "id": s.id,
                 "name": s.name,
                 "email": s.email,
-                "subscribed_at": s.created_at.isoformat(),
+                "created_at": s.created_at.isoformat() if s.created_at else None,
             }
             for s in subscribers
         ]
 
         return jsonify(
-            {
-                "reservations": reservations_data,
-                "subscribers": subscribers_data,
-            }
+            {"reservations": reservations_data, "subscribers": subscribers_data}
         ), 200
 
     except Exception as e:
+        # this will show up in Render logs AND in the browser for now
         print("ADMIN OVERVIEW ERROR:", e)
-        return jsonify({"error": "Server error"}), 500
+        return jsonify({"error": "Server error", "details": str(e)}), 500
 
 @app.after_request
 def add_cors_headers(response):
