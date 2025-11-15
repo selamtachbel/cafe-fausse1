@@ -213,15 +213,16 @@ def create_reservation():
 @app.route("/api/admin/overview", methods=["GET"])
 def admin_overview():
     """
-    Returns reservations and newsletter subscribers
-    WITHOUT checking any key here.
-    The frontend handles the admin key.
+    Returns all reservations and newsletter subscribers.
+    Requires a valid admin key as a query parameter:
+    GET /api/admin/overview?key=Selam2024
     """
-    try:
-        reservations = Reservation.query.order_by(
-            Reservation.time_slot.asc()
-        ).all()
+    key = request.args.get("key")
+    if not key or key != ADMIN_KEY:
+        return jsonify({"error": "Invalid admin key."}), 401
 
+    try:
+        reservations = Reservation.query.order_by(Reservation.time_slot.asc()).all()
         subscribers = NewsletterSubscriber.query.order_by(
             NewsletterSubscriber.created_at.desc()
         ).all()
@@ -233,9 +234,9 @@ def admin_overview():
                 "email": r.email,
                 "phone": r.phone,
                 "guests": r.guests,
-                "time_slot": r.time_slot.isoformat() if r.time_slot else None,
+                "time_slot": r.time_slot.isoformat(),
                 "table_number": r.table_number,
-                "newsletter": r.newsletter_opt_in,
+                "wants_newsletter": r.wants_newsletter,
             }
             for r in reservations
         ]
@@ -245,9 +246,7 @@ def admin_overview():
                 "id": s.id,
                 "name": s.name,
                 "email": s.email,
-                "subscribed_at": s.created_at.isoformat()
-                if s.created_at
-                else None,
+                "subscribed_at": s.created_at.isoformat(),
             }
             for s in subscribers
         ]
