@@ -13,9 +13,15 @@ from dotenv import load_dotenv
 load_dotenv()  # reads .env file
 
 app = Flask(__name__)
-app = Flask(__name__)
 
-# --- CORS FIX FOR RENDER ---
+
+# Database config (SQLite)
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
+    "SQLALCHEMY_DATABASE_URI", "sqlite:///cafe_fausse.db"
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
 CORS(
     app,
     resources={r"/api/*": {"origins": [
@@ -25,20 +31,6 @@ CORS(
     ]}},
     supports_credentials=False,
 )
-# ---------------------------
-
-# Database config (SQLite)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "SQLALCHEMY_DATABASE_URI", "sqlite:///cafe_fausse.db"
-)
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-db = SQLAlchemy(app)
-
-EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-ADMIN_KEY = os.getenv("ADMIN_KEY", "Selam2024")  # you can change in .env
-
 # ------------------ Models ------------------ #
 
 
@@ -65,8 +57,11 @@ class Reservation(db.Model):
 
 
 with app.app_context():
-    db.create_all()
-
+    try:
+        db.create_all()
+        print("✅ Database tables are ready.")
+    except Exception as e:
+        print("❌ Error creating tables:", e)
 # ------------------ Routes ------------------ #
 
 
