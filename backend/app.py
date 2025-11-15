@@ -208,50 +208,73 @@ def create_reservation():
 
 @app.route("/api/admin/overview", methods=["GET"])
 def admin_overview():
-    key = request.args.get("key")
+    """
+    Return all reservations and newsletter subscribers.
+    Protected with simple admin key.
+    """
 
+    key = request.args.get("key")
     if not key or key != ADMIN_KEY:
+        # Wrong or missing admin key
         return jsonify({"error": "Invalid admin key."}), 401
 
     try:
-        reservations = Reservation.query.order_by(Reservation.time_slot.asc()).all()
-        subscribers = NewsletterSubscriber.query.order_by(
-            NewsletterSubscriber.created_at.desc()
-        ).all()
+        # Get data from DB
+        reservations = (
+            Reservation.query
+            .order_by(Reservation.time_slot.asc())
+            .all()
+        )
+        subscribers = (
+            NewsletterSubscriber.query
+            .order_by(NewsletterSubscriber.created_at.desc())
+            .all()
+        )
 
-        reservations_data = [
-            {
+        # Some older rows in the DB might store dates as *strings*.
+        # Safely handle both string and datetime, so we don't crash.
+        def safe_datetime_to_str(value):
+            from datetime import datetime
+            if value is None:
+                return ""
+            if isinstance(value, str):
+                return value  # already a string, just return it
+            try:
+                return value.strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                return str(value)
+
+        reservations_data = []
+        for r in reservations:
+            reservations_data.append({
                 "id": r.id,
                 "name": r.name,
                 "email": r.email,
                 "phone": r.phone,
                 "guests": r.guests,
-                "time_slot": r.time_slot.isoformat() if r.time_slot else None,
+                "time_slot": safe_datetime_to_str(r.time_slot),
                 "table_number": r.table_number,
-                "wants_newsletter": r.wants_newsletter,
-            }
-            for r in reservations
-        ]
+                "newsletter_opt_in": bool(r.newsletter_opt_in),
+            })
 
-        subscribers_data = [
-            {
+        subscribers_data = []
+        for s in subscribers:
+            subscribers_data.append({
                 "id": s.id,
                 "name": s.name,
                 "email": s.email,
-                "created_at": s.created_at.isoformat() if s.created_at else None,
-            }
-            for s in subscribers
-        ]
+                "subscribed_at": safe_datetime_to_str(s.created_at),
+            })
 
-        return jsonify(
-            {"reservations": reservations_data, "subscribers": subscribers_data}
-        ), 200
+        return jsonify({
+            "reservations": reservations_data,
+            "subscribers": subscribers_data,
+        }), 200
 
     except Exception as e:
-        # this will show up in Render logs AND in the browser for now
-        print("ADMIN OVERVIEW ERROR:", e)
-        return jsonify({"error": "Server error", "details": str(e)}), 500
-
+        # Log on server, but return a clean JSON error
+        print("ERROR in admin_overview:", repr(e))
+        return jsonify({"error": "Server error"}), 500
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "https://cafe-fausse1-frontend-selam.onrender.com"
