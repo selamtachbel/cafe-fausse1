@@ -16,9 +16,8 @@ load_dotenv()  # reads .env file
 app = Flask(__name__)
 
 # Database config (SQLite)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "SQLALCHEMY_DATABASE_URI", "sqlite:///instance/cafe_fausse.db"
-)
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///instance/cafe_fausse.db"
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)

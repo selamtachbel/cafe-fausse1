@@ -17,12 +17,13 @@ export default function Admin() {
     setLoading(true);
 
     try {
+      const key = inputKey.trim();
+
       const res = await fetch(
-        `${API_BASE_URL}/api/admin/overview?key=${encodeURIComponent(
-          inputKey
-        )}`
+        `${API_BASE_URL}/api/admin/overview?key=${encodeURIComponent(key)}`
       );
 
+      // Wrong admin key
       if (res.status === 401) {
         setStatus("Incorrect admin key.");
         setIsAuthed(false);
@@ -30,12 +31,16 @@ export default function Admin() {
         return;
       }
 
+      // Any other error from the server
       if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.error("Admin overview error:", res.status, text);
         setStatus("Server error. Please try again.");
         setLoading(false);
         return;
       }
 
+      // Success
       const data = await res.json();
       setReservations(data.reservations || []);
       setSubscribers(data.subscribers || []);
@@ -108,7 +113,11 @@ export default function Admin() {
                   <td>{r.email}</td>
                   <td>{r.phone || "—"}</td>
                   <td>{r.guests}</td>
-                  <td>{new Date(r.time_slot).toLocaleString()}</td>
+                  <td>
+                    {r.time_slot
+                      ? new Date(r.time_slot).toLocaleString()
+                      : "—"}
+                  </td>
                   <td>{r.table_number}</td>
                   <td>{r.newsletter ? "Yes" : "No"}</td>
                 </tr>
@@ -136,7 +145,11 @@ export default function Admin() {
                   <td>{index + 1}</td>
                   <td>{s.name || "—"}</td>
                   <td>{s.email}</td>
-                  <td>{new Date(s.subscribed_at).toLocaleString()}</td>
+                  <td>
+                    {s.subscribed_at || s.created_at
+                      ? new Date(s.subscribed_at || s.created_at).toLocaleString()
+                      : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
