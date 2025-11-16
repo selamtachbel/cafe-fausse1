@@ -17,71 +17,78 @@ function Reservations() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // handle all inputs (text/number/checkbox)
+  // ----- handle input changes (text/number/checkbox) -----
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
   };
 
+  // ----- client-side validation -----
   const validate = () => {
     const newErrors = {};
 
     if (!form.name.trim()) newErrors.name = "Name is required.";
     if (!form.email.trim()) newErrors.email = "Email is required.";
-    if (!form.guests) newErrors.guests = "Number of guests is required.";
-    if (!form.date) newErrors.date = "Date is required.";
-    if (!form.time) newErrors.time = "Time is required.";
+    if (!form.guests || Number(form.guests) <= 0) {
+      newErrors.guests = "Guests must be at least 1.";
+    }
+    if (!form.date) newErrors.date = "Please choose a date.";
+    if (!form.time) newErrors.time = "Please choose a time.";
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
   };
 
+  // ----- submit handler -----
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus("");
-    if (!validate()) return;
+    setErrors({});
+
+    const newErrors = validate();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
 
     setLoading(true);
 
     try {
-      const payload = {
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        guests: Number(form.guests),
-        date: form.date,          // "YYYY-MM-DD" from <input type="date">
-        time: form.time,          // "HH:MM" from <input type="time">
-        newsletter_opt_in: form.newsletter, // MUST match backend field name
-      };
-
       const res = await fetch(`${API_BASE_URL}/api/reservations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          guests: Number(form.guests),
+          date: form.date,          // e.g. "2025-11-23"
+          time: form.time,          // e.g. "23:00"
+          newsletter_opt_in: form.newsletter,
+        }),
       });
 
-      const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         setStatus(data.error || "Server error. Please try again.");
-      } else {
-        setStatus(data.message || "Reservation created!");
-        // clear form
-        setForm({
-          name: "",
-          email: "",
-          phone: "",
-          guests: "",
-          date: "",
-          time: "",
-          newsletter: false,
-        });
-        setErrors({});
+        setLoading(false);
+        return;
       }
+
+      // success
+      setStatus("Reservation submitted! We’ll see you soon.");
+      setForm({
+        name: "",
+        email: "",
+        phone: "",
+        guests: "",
+        date: "",
+        time: "",
+        newsletter: false,
+      });
+      setErrors({});
     } catch (err) {
       console.error("RESERVATION ERROR:", err);
       setStatus("Server error. Please try again.");
@@ -92,11 +99,11 @@ function Reservations() {
 
   return (
     <main className="page reservations-page">
-      <section className="card reservations-card">
+      <section className="reservations-card">
         <h1>Reserve a Table</h1>
         <p>Book your spot at Café Fausse.</p>
 
-        <form onSubmit={handleSubmit} className="reservation-form">
+        <form onSubmit={handleSubmit} className="reservations-form">
           <label>
             Name
             <input
@@ -138,16 +145,14 @@ function Reservations() {
               value={form.guests}
               onChange={handleChange}
             />
-            {errors.guests && (
-              <span className="error-text">{errors.guests}</span>
-            )}
+            {errors.guests && <span className="error-text">{errors.guests}</span>}
           </label>
 
-          {/* BROWSER CALENDAR */}
+          {/* Calendar picker */}
           <label>
             Date
             <input
-              type="date"
+            type="date"
               name="date"
               value={form.date}
               onChange={handleChange}
@@ -155,7 +160,7 @@ function Reservations() {
             {errors.date && <span className="error-text">{errors.date}</span>}
           </label>
 
-          {/* BROWSER CLOCK / TIME PICKER */}
+          {/* Clock / time picker */}
           <label>
             Time
             <input
@@ -178,7 +183,7 @@ function Reservations() {
           </label>
 
           <button type="submit" disabled={loading}>
-            {loading ? "Sending..." : "Confirm Reservation"}
+            {loading ? "Submitting..." : "Confirm Reservation"}
           </button>
         </form>
 
