@@ -1,6 +1,8 @@
 // frontend/src/pages/Admin.jsx
 import React, { useState } from "react";
-import { API_BASE_URL } from "../config";
+
+// Hard-code backend URL
+const API_BASE_URL = "https://cafe-fausse-backend-selam.onrender.com";
 
 export default function Admin() {
   const [inputKey, setInputKey] = useState("");
@@ -10,6 +12,7 @@ export default function Admin() {
   const [reservations, setReservations] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
 
+  // ---- Handle login with admin key ----
   const handleLogin = async (e) => {
     e.preventDefault();
     setStatus("");
@@ -36,6 +39,7 @@ export default function Admin() {
       }
 
       const data = await res.json();
+
       setReservations(data.reservations || []);
       setSubscribers(data.subscribers || []);
       setIsAuthed(true);
@@ -113,9 +117,7 @@ export default function Admin() {
                       : "—"}
                   </td>
                   <td>{r.table_number}</td>
-                  <td>
-                    {r.newsletter_opt_in ?? r.newsletter ? "Yes" : "No"}
-                  </td>
+                  <td>{r.newsletter ? "Yes" : "No"}</td>
                 </tr>
               ))}
             </tbody>
@@ -136,7 +138,8 @@ export default function Admin() {
               </tr>
             </thead>
             <tbody>
-              {subscribers.map((s, index) => (<tr key={s.id}>
+              {subscribers.map((s, index) => (
+                <tr key={s.id}>
                   <td>{index + 1}</td>
                   <td>{s.name || "—"}</td>
                   <td>{s.email}</td>
