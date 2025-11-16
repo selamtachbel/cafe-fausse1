@@ -15,8 +15,9 @@ function Reservations() {
 
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // Handle all inputs (text / number / checkbox)
+  // handle all inputs (text/number/checkbox)
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -42,25 +43,21 @@ function Reservations() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus("");
-    setErrors({});
+    if (!validate()) return;
 
-    if (!validate()) {
-      setStatus("Please fix the errors above.");
-      return;
-    }
-
-    const payload = {
-      name: form.name.trim(),
-      email: form.email.trim().toLowerCase(),
-      phone: form.phone.trim() || null,
-      guests: Number(form.guests),
-      date: form.date,                // e.g. "2025-11-22"
-      time: form.time,                // e.g. "18:00"
-      newsletter_opt_in: form.newsletter,
-      table_number: 1,                // simple default table number
-    };
+    setLoading(true);
 
     try {
+      const payload = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        guests: Number(form.guests),
+        date: form.date,          // "YYYY-MM-DD" from <input type="date">
+        time: form.time,          // "HH:MM" from <input type="time">
+        newsletter_opt_in: form.newsletter, // MUST match backend field name
+      };
+
       const res = await fetch(`${API_BASE_URL}/api/reservations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -71,29 +68,31 @@ function Reservations() {
 
       if (!res.ok) {
         setStatus(data.error || "Server error. Please try again.");
-        return;
+      } else {
+        setStatus(data.message || "Reservation created!");
+        // clear form
+        setForm({
+          name: "",
+          email: "",
+          phone: "",
+          guests: "",
+          date: "",
+          time: "",
+          newsletter: false,
+        });
+        setErrors({});
       }
-
-      setStatus("Reservation created successfully!");
-      setForm({
-        name: "",
-        email: "",
-        phone: "",
-        guests: "",
-        date: "",
-        time: "",
-        newsletter: false,
-      });
-      setErrors({});
     } catch (err) {
       console.error("RESERVATION ERROR:", err);
       setStatus("Server error. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <main className="page reservations-page">
-      <section className="card">
+      <section className="card reservations-card">
         <h1>Reserve a Table</h1>
         <p>Book your spot at Café Fausse.</p>
 
@@ -144,6 +143,7 @@ function Reservations() {
             )}
           </label>
 
+          {/* BROWSER CALENDAR */}
           <label>
             Date
             <input
@@ -155,6 +155,7 @@ function Reservations() {
             {errors.date && <span className="error-text">{errors.date}</span>}
           </label>
 
+          {/* BROWSER CLOCK / TIME PICKER */}
           <label>
             Time
             <input
@@ -176,7 +177,9 @@ function Reservations() {
             Sign me up for the newsletter.
           </label>
 
-          <button type="submit">Confirm Reservation</button>
+          <button type="submit" disabled={loading}>
+            {loading ? "Sending..." : "Confirm Reservation"}
+          </button>
         </form>
 
         {status && <p className="status-text">{status}</p>}
