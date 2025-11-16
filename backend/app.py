@@ -13,11 +13,15 @@ from flask_cors import CORS
 
 load_dotenv()  # reads .env file
 
-app = Flask(__name__)
+app = Flask(__name__)  # <-- MUST be name, not name
 
-# Database config (SQLite)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///instance/cafe_fausse.db"
+# Make sure the instance folder exists (works on Render + local)
+instance_dir = os.path.join(app.root_path, "instance")
+os.makedirs(instance_dir, exist_ok=True)
 
+# Absolute path to SQLite DB inside instance/
+db_path = os.path.join(instance_dir, "cafe_fausse.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
@@ -25,11 +29,15 @@ db = SQLAlchemy(app)
 # CORS: allow local dev + Render frontend
 CORS(
     app,
-    resources={r"/api/*": {"origins": [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://cafe-fausse1-frontend-selam.onrender.com",
-    ]}},
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "https://cafe-fausse1-frontend-selam.onrender.com",
+            ]
+        }
+    },
     supports_credentials=False,
 )
 
@@ -66,6 +74,7 @@ with app.app_context():
     try:
         db.create_all()
         print("✅ Database tables are ready.")
+        print(f"DB path: {db_path}")
     except Exception as e:
         print("❌ Error creating tables:", e)
 
@@ -83,7 +92,7 @@ def health_check():
 def newsletter_signup():
     data = request.get_json() or {}
 
-    name = data.get("name", "").strip() or None
+    name = (data.get("name") or "").strip() or None
     email = (data.get("email") or "").strip().lower()
 
     if not email or not EMAIL_REGEX.match(email):
@@ -117,7 +126,11 @@ def create_reservation():
     guests = data.get("guests")
     date_str = data.get("date")  # e.g. "2025-11-22"
     time_str = data.get("time")  # e.g. "18:00"
-    newsletter_opt_in = bool(data.get("newsletter_opt_in"))
+
+    # Frontend might send "newsletter" or "newsletter_opt_in"
+    newsletter_opt_in = bool(
+        data.get("newsletter_opt_in") or data.get("newsletter")
+    )
 
     # Basic validation
     if not name or not email or not guests or not date_str or not time_str:
@@ -128,8 +141,8 @@ def create_reservation():
 
     try:
         # combine date + time into datetime
-        # expect ISO-like strings from frontend, adjust if needed
-        time_slot = datetime.fromisoformat(f"{date_str} {time_str}")# you can make a smarter table_number; here just a simple placeholder
+        time_slot = datetime.fromisoformat(f"{date_str} {time_str}")
+        # you can make a smarter table_number; here just a simple placeholder
         table_number = int(data.get("table_number") or 1)
 
         reservation = Reservation(
@@ -173,41 +186,52 @@ def admin_overview():
         reservations_list = Reservation.query.order_by(Reservation.id).all()
         reservations_data = []
         for r in reservations_list:
-            reservations_data.append({
-                "id": r.id,
-                "name": r.name,
-                "email": r.email,
-                "phone": r.phone,
-                "guests": r.guests,
-                "time_slot": r.time_slot.isoformat() if r.time_slot else None,
-                "table_number": r.table_number,
-                "newsletter": r.newsletter_opt_in,
-            })
+            reservations_data.append(
+                {
+                    "id": r.id,
+                    "name": r.name,
+                    "email": r.email,
+                    "phone": r.phone,
+                    "guests": r.guests,
+                    "time_slot": r.time_slot.isoformat()
+                    if r.time_slot
+                    else None,
+                    "table_number": r.table_number,
+                    "newsletter": r.newsletter_opt_in,
+                }
+            )
 
         # ---- Subscribers ----
-        subs_list = NewsletterSubscriber.query.order_by(NewsletterSubscriber.id).all()
+        subs_list = NewsletterSubscriber.query.order_by(
+            NewsletterSubscriber.id
+        ).all()
         subscribers_data = []
         for s in subs_list:
-            subscribers_data.append({
-                "id": s.id,
-                "name": s.name,
-                "email": s.email,
-                "subscribed_at": s.created_at.isoformat() if s.created_at else None,
-            })
+            subscribers_data.append(
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "email": s.email,
+                    "subscribed_at": s.created_at.isoformat()
+                    if s.created_at
+                    else None,
+                }
+            )
 
         # All good: return data
-        return jsonify({
-            "reservations": reservations_data,
-            "subscribers": subscribers_data,
-        }), 200
+        return jsonify(
+            {
+                "reservations": reservations_data,
+                "subscribers": subscribers_data,
+            }
+        ), 200
 
     except Exception as e:
-        # TEMPORARY: show the real error so we can debug Render
         import traceback
+
+        print("❌ Admin overview error:", e)
         traceback.print_exc()
-        return jsonify({
-            "error": f"{type(e).__name__}: {str(e)}"
-        }), 500
+        return jsonify({"error": "Server error."}), 500
 
 
 # ------------- Main ------------- #
@@ -216,4 +240,3 @@ if __name__ == "__main__":
     # Local dev
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-        
