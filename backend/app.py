@@ -162,58 +162,52 @@ def create_reservation():
 # ---- Admin overview (with admin key) ---- #
 @app.route("/api/admin/overview", methods=["GET"])
 def admin_overview():
-    """
-    Frontend should call: /api/admin/overview?key=YOUR_KEY
-    where YOUR_KEY must match ADMIN_KEY in .env
-    """
-    key = request.args.get("key")
-    if not key or key != ADMIN_KEY:
-        return jsonify({"error": "Invalid admin key."}), 401
+    # First: check the admin key
+    key = request.args.get("key", "")
+
+    if key != ADMIN_KEY:
+        return jsonify({"error": "Invalid admin key"}), 401
 
     try:
-        reservations = (
-            Reservation.query.order_by(Reservation.time_slot.asc()).all()
-        )
-        subscribers = (
-            NewsletterSubscriber.query.order_by(
-                NewsletterSubscriber.created_at.desc()
-            ).all()
-        )
-
-        reservations_data = [
-            {
+        # ---- Reservations ----
+        reservations_list = Reservation.query.order_by(Reservation.id).all()
+        reservations_data = []
+        for r in reservations_list:
+            reservations_data.append({
                 "id": r.id,
                 "name": r.name,
                 "email": r.email,
                 "phone": r.phone,
                 "guests": r.guests,
-                "time_slot": r.time_slot.isoformat(),
+                "time_slot": r.time_slot.isoformat() if r.time_slot else None,
                 "table_number": r.table_number,
-                "newsletter_opt_in": r.newsletter_opt_in,
-            }
-            for r in reservations
-        ]
+                "newsletter": r.newsletter_opt_in,
+            })
 
-        subscribers_data = [
-            {
+        # ---- Subscribers ----
+        subs_list = NewsletterSubscriber.query.order_by(NewsletterSubscriber.id).all()
+        subscribers_data = []
+        for s in subs_list:
+            subscribers_data.append({
                 "id": s.id,
                 "name": s.name,
                 "email": s.email,
-                "created_at": s.created_at.isoformat(),
-            }
-            for s in subscribers
-        ]
+                "subscribed_at": s.created_at.isoformat() if s.created_at else None,
+            })
 
-        return jsonify(
-            {
-                "reservations": reservations_data,
-                "subscribers": subscribers_data,
-            }
-        ), 200
+        # All good: return data
+        return jsonify({
+            "reservations": reservations_data,
+            "subscribers": subscribers_data,
+        }), 200
 
     except Exception as e:
-        print("❌ Admin overview error:", e)
-        return jsonify({"error": "Server error."}), 500
+        # TEMPORARY: show the real error so we can debug Render
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": f"{type(e).__name__}: {str(e)}"
+        }), 500
 
 
 # ------------- Main ------------- #
