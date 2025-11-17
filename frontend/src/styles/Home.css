@@ -1,107 +1,23 @@
-/* Home.css  – make home look like menu hero */
-
-.home-page {
-  min-height: calc(100vh - 70px); /* full screen minus navbar */
-  padding: 3rem 1.5rem 4rem;
+page.home-page {
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-sizing: border-box;
+  padding: 40px 16px;
 
-  /* same hero background as Menu */
   background-image:
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.9)),
-    url("/images/menu/hero.jpg");  /* use your hero image path */
+    linear-gradient(120deg, rgba(8, 8, 8, 0.9), rgba(8, 8, 8, 0.75)),
+    url("/images/hero.jpg");
   background-size: cover;
   background-position: center;
-  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
-/* main glass card */
-.home-hero-card {
-  max-width: 680px;
-  width: 100%;
-  padding: 2.5rem 2.75rem 2.25rem;
-  border-radius: 18px;
-  background: rgba(10, 10, 10, 0.9);
-  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(16px);
-  text-align: center;
-}
-
-.home-hero-card h1 {
-  font-size: 2.4rem;
-  margin-bottom: 0.75rem;
-}
-
-.home-hero-card p.lead {
-  margin-bottom: 1.75rem;
-  font-size: 0.98rem;
-  color: #f5f5f5;
-}
-
-/* newsletter card inside hero */
-.home-newsletter-card {
-  margin-top: 1.5rem;
-  padding: 1.5rem 1.75rem 1.75rem;
-  border-radius: 14px;
-  background: rgba(17, 17, 17, 0.92);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
-  text-align: left;
-}
-
-.home-newsletter-card h2 {
-  font-size: 1.15rem;
-  margin-bottom: 0.5rem;
-}
-
-.home-newsletter-card p {
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
-}
-
-.home-newsletter-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.home-newsletter-form label {
-  font-size: 0.8rem;
-  opacity: 0.9;
-}
-
-.home-newsletter-form input {
-  width: 100%;
-  padding: 0.6rem 0.7rem;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.65);
-  color: #f5f5f5;
-  font-size: 0.9rem;
-}
-
-.home-newsletter-form button {
-  margin-top: 0.5rem;
-  align-self: flex-start;
-}
-
-/* small status text under the button */
-.home-status {
-  margin-top: 0.75rem;
-  font-size: 0.8rem;
-}
-
-.home-status.error {
-  color: #ff6b6b;
-}
-.home-status.success {
-  color: #4ade80;
-}
-
-/* mobile tweaks */
-@media (max-width: 768px) {
-  .home-hero-card {
-    padding: 1.75rem 1.5rem;
-  }
+.home-hero {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 48px;
+  border-radius: 16px;
+  background: rgba(15, 15, 15, 0.9);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.6);
 }
